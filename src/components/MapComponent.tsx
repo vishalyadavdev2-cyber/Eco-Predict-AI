@@ -30,13 +30,11 @@ const MapComponent: React.FC<MapComponentProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const directionsRenderers = useRef<google.maps.DirectionsRenderer[]>([]);
+  const markers = useRef<google.maps.Marker[]>([]); // Ref to hold markers
 
   // Effect for initializing the map instance (runs only once)
   useEffect(() => {
-    // Check if the ref is attached before initializing
-    if (!mapRef.current) {
-        return;
-    }
+    if (!mapRef.current) return;
 
     const initMap = async () => {
       try {
@@ -66,15 +64,15 @@ const MapComponent: React.FC<MapComponentProps> = ({
     // Cleanup on component unmount
     return () => {
       directionsRenderers.current.forEach(renderer => renderer.setMap(null));
+      markers.current.forEach(marker => marker.setMap(null)); // Clean up markers
       directionsRenderers.current = [];
+      markers.current = [];
     };
-  }, []); // Empty dependency array ensures this runs once after the initial render
+  }, []);
 
   // Effect for calculating and displaying routes when inputs change
   useEffect(() => {
-    if (!map || !directionsService || !source || !destination) {
-      return;
-    }
+    if (!map || !directionsService || !source || !destination) return;
 
     const calculateAndRenderRoutes = async () => {
       directionsRenderers.current.forEach(renderer => renderer.setMap(null));
@@ -94,16 +92,14 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
       try {
         const result = await directionsService.route(request);
-
         if (result.status === google.maps.DirectionsStatus.OK) {
           const bounds = new google.maps.LatLngBounds();
-
           directionsRenderers.current = result.routes.map((route, index) => {
             const renderer = new google.maps.DirectionsRenderer({
               map,
               directions: result,
               routeIndex: index,
-              suppressMarkers: true,
+              suppressMarkers: true, // Suppress default markers to use our own
               polylineOptions: {
                 strokeColor: ROUTE_COLORS[index % ROUTE_COLORS.length],
                 strokeWeight: 4,
@@ -112,26 +108,23 @@ const MapComponent: React.FC<MapComponentProps> = ({
               },
             });
 
-            renderer.addListener('click', () => {
-                onRouteSelect?.(index); // Use index as ID (0, 1, 2...)
-            });
+            renderer.addListener('click', () => onRouteSelect?.(index));
             
             route.legs.forEach(leg => {
-                leg.steps.forEach(step => {
-                    step.path.forEach(point => bounds.extend(point));
-                });
+              leg.steps.forEach(step => {
+                step.path.forEach(point => bounds.extend(point));
+              });
             });
-
             return renderer;
           });
           
           map.fitBounds(bounds, 60);
 
           if (onRouteSelect && (selectedRouteId === undefined || selectedRouteId === null)) {
-             onRouteSelect(0);
+            onRouteSelect(0);
           }
         } else {
-            setError(`Failed to find routes. Status: ${result.status}`);
+          setError(`Failed to find routes. Status: ${result.status}`);
         }
       } catch (err) {
         console.error('Error calculating routes:', err);
@@ -141,6 +134,29 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
     calculateAndRenderRoutes();
   }, [map, directionsService, source, destination, waypoints, onRouteSelect]);
+
+  // Effect to add/update markers for source and destination
+  useEffect(() => {
+    // Clear previous markers
+    markers.current.forEach(marker => marker.setMap(null));
+    markers.current = [];
+
+    if (map && source && destination) {
+      const sourceMarker = new google.maps.Marker({
+        position: source,
+        map,
+        label: { text: "A", color: "white", fontWeight: "bold" },
+      });
+
+      const destinationMarker = new google.maps.Marker({
+        position: destination,
+        map,
+        label: { text: "B", color: "white", fontWeight: "bold" },
+      });
+
+      markers.current.push(sourceMarker, destinationMarker);
+    }
+  }, [map, source, destination]);
 
   // Effect to update route styles when a route is selected
   useEffect(() => {
@@ -156,11 +172,9 @@ const MapComponent: React.FC<MapComponentProps> = ({
     });
   }, [selectedRouteId]);
 
-  // Render the container div unconditionally, with overlays for loading/error states.
   return (
     <div className="relative w-full h-full" style={{ minHeight: '500px' }}>
       <div ref={mapRef} className="w-full h-full" />
-
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
           <div className="text-center">
@@ -169,7 +183,6 @@ const MapComponent: React.FC<MapComponentProps> = ({
           </div>
         </div>
       )}
-
       {error && (
         <div className="absolute inset-0 flex items-center justify-center bg-red-50 z-10">
           <div className="bg-white p-4 rounded-lg shadow-lg text-red-600">
