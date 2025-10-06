@@ -1,13 +1,15 @@
 import React from 'react';
 import { Wind, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 
+type AirQualityLevel = 'good' | 'moderate' | 'unhealthy' | 'hazardous';
+
 interface AirQualityData {
   aqi: number;
   pm25: number;
   pm10: number;
   o3: number;
   recommendation: string;
-  level: 'good' | 'moderate' | 'unhealthy' | 'hazardous';
+  level: AirQualityLevel;
 }
 
 interface AirQualityCardProps {
@@ -15,17 +17,8 @@ interface AirQualityCardProps {
 }
 
 const AirQualityCard: React.FC<AirQualityCardProps> = ({ data }) => {
-  const getAQIColor = (level: string) => {
-    switch (level) {
-      case 'good': return 'text-green-500';
-      case 'moderate': return 'text-yellow-500';
-      case 'unhealthy': return 'text-orange-500';
-      case 'hazardous': return 'text-red-500';
-      default: return 'text-gray-500';
-    }
-  };
 
-  const getAQIBgColor = (level: string) => {
+  const getAQIBgColor = (level: AirQualityLevel) => {
     switch (level) {
       case 'good': return 'bg-green-100 border-green-200';
       case 'moderate': return 'bg-yellow-100 border-yellow-200';
@@ -35,7 +28,7 @@ const AirQualityCard: React.FC<AirQualityCardProps> = ({ data }) => {
     }
   };
 
-  const getAQIIcon = (level: string) => {
+  const getAQIIcon = (level: AirQualityLevel) => {
     switch (level) {
       case 'good': return <CheckCircle className="h-5 w-5 text-green-500" />;
       case 'moderate': return <AlertCircle className="h-5 w-5 text-yellow-500" />;
@@ -48,6 +41,17 @@ const AirQualityCard: React.FC<AirQualityCardProps> = ({ data }) => {
   const getAQIProgressWidth = (aqi: number) => {
     return Math.min((aqi / 300) * 100, 100);
   };
+
+  const getAQIColor = (level: AirQualityLevel) => {
+    switch (level) {
+      case 'good': return 'text-green-500';
+      case 'moderate': return 'text-yellow-500';
+      case 'unhealthy': return 'text-orange-500';
+      case 'hazardous': return 'text-red-500';
+      default: return 'text-gray-500';
+    }
+  };
+  
 
   return (
     <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl p-6 border border-gray-200/50">

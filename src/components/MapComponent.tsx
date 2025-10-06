@@ -1,210 +1,179 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Loader } from '@googlemaps/js-api-loader';
-import { MapPin, Navigation, Zap, AlertTriangle } from 'lucide-react';
+import { loadGoogleMaps } from '../utils/googleMaps';
+import { MapComponentProps } from '../types/maps';
 
-interface RouteData {
-  source: string;
-  destination: string;
-  distance: string;
-  duration: string;
-  trafficLevel: 'low' | 'moderate' | 'heavy';
+declare global {
+  interface Window {
+    google: typeof google;
+  }
 }
 
-interface MapComponentProps {
-  routeData: RouteData | null;
-}
+const ROUTE_COLORS = [
+  '#4285F4', // Blue
+  '#34A853', // Green
+  '#FBBC05', // Yellow
+  '#EA4335', // Red
+  '#673AB7', // Purple
+];
 
-const MapComponent: React.FC<MapComponentProps> = ({ routeData }) => {
+const MapComponent: React.FC<MapComponentProps> = ({
+  source,
+  destination,
+  waypoints = [],
+  onRouteSelect,
+  selectedRouteId,
+}) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [directionsService, setDirectionsService] = useState<google.maps.DirectionsService | null>(null);
-  const [directionsRenderer, setDirectionsRenderer] = useState<google.maps.DirectionsRenderer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize Google Maps
+  const directionsRenderers = useRef<google.maps.DirectionsRenderer[]>([]);
+
+  // Effect for initializing the map instance (runs only once)
   useEffect(() => {
+    // Check if the ref is attached before initializing
+    if (!mapRef.current) {
+        return;
+    }
+
     const initMap = async () => {
       try {
-        const apiKey = 'AIzaSyDrQI7tIdY3L8QyMWGmX6FsAj8Rntk1biY'; // Replace with your actual API key
+        await loadGoogleMaps();
         
-        if (apiKey === 'AIzaSyDrQI7tIdY3L8QyMWGmX6FsAj8Rntk1biY') {
-          setError('Google Maps API key not configured. Please add your API key to use the mapping functionality.');
-          setIsLoading(false);
-          return;
-        }
-
-        const loader = new Loader({
-          apiKey: apiKey,
-          version: 'weekly',
-          libraries: ['places', 'geometry']
+        const mapInstance = new google.maps.Map(mapRef.current!, {
+          center: { lat: 20.5937, lng: 78.9629 }, // Default center of India
+          zoom: 5,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: true,
+          zoomControl: true,
         });
 
-        await loader.load();
-
-        if (mapRef.current) {
-          const mapInstance = new google.maps.Map(mapRef.current, {
-            center: { lat: 40.7128, lng: -74.0060 }, // Default to New York
-            zoom: 13,
-            styles: [
-              {
-                featureType: 'all',
-                elementType: 'geometry.fill',
-                stylers: [{ color: '#f5f5f5' }]
-              },
-              {
-                featureType: 'water',
-                elementType: 'geometry',
-                stylers: [{ color: '#c9d6e5' }]
-              },
-              {
-                featureType: 'road',
-                elementType: 'geometry',
-                stylers: [{ color: '#ffffff' }]
-              },
-              {
-                featureType: 'road.highway',
-                elementType: 'geometry',
-                stylers: [{ color: '#dadada' }]
-              }
-            ],
-            mapTypeControl: true,
-            streetViewControl: true,
-            fullscreenControl: true,
-            zoomControl: true
-          });
-
-          const directionsServiceInstance = new google.maps.DirectionsService();
-          const directionsRendererInstance = new google.maps.DirectionsRenderer({
-            suppressMarkers: false,
-            polylineOptions: {
-              strokeColor: '#4F46E5',
-              strokeWeight: 6,
-              strokeOpacity: 0.8
-            }
-          });
-
-          directionsRendererInstance.setMap(mapInstance);
-
-          setMap(mapInstance);
-          setDirectionsService(directionsServiceInstance);
-          setDirectionsRenderer(directionsRendererInstance);
-          setIsLoading(false);
-        }
+        setMap(mapInstance);
+        setDirectionsService(new google.maps.DirectionsService());
       } catch (err) {
         console.error('Error loading Google Maps:', err);
-        setError('Failed to load Google Maps. Please check your API key.');
+        setError('Failed to load Google Maps. Please check your API key and internet connection.');
+      } finally {
         setIsLoading(false);
       }
     };
 
     initMap();
-  }, []);
 
-  // Update route when routeData changes
+    // Cleanup on component unmount
+    return () => {
+      directionsRenderers.current.forEach(renderer => renderer.setMap(null));
+      directionsRenderers.current = [];
+    };
+  }, []); // Empty dependency array ensures this runs once after the initial render
+
+  // Effect for calculating and displaying routes when inputs change
   useEffect(() => {
-    if (routeData && directionsService && directionsRenderer && map) {
+    if (!map || !directionsService || !source || !destination) {
+      return;
+    }
+
+    const calculateAndRenderRoutes = async () => {
+      directionsRenderers.current.forEach(renderer => renderer.setMap(null));
+      directionsRenderers.current = [];
+
       const request: google.maps.DirectionsRequest = {
-        origin: routeData.source,
-        destination: routeData.destination,
+        origin: source,
+        destination: destination,
+        waypoints: waypoints.map(wp => ({
+          location: wp.location as google.maps.LatLngLiteral,
+          stopover: true,
+        })),
         travelMode: google.maps.TravelMode.DRIVING,
-        avoidHighways: false,
-        avoidTolls: false,
-        optimizeWaypoints: true
+        provideRouteAlternatives: true,
+        optimizeWaypoints: true,
       };
 
-      directionsService.route(request, (result, status) => {
-        if (status === 'OK' && result) {
-          directionsRenderer.setDirections(result);
+      try {
+        const result = await directionsService.route(request);
+
+        if (result.status === google.maps.DirectionsStatus.OK) {
+          const bounds = new google.maps.LatLngBounds();
+
+          directionsRenderers.current = result.routes.map((route, index) => {
+            const renderer = new google.maps.DirectionsRenderer({
+              map,
+              directions: result,
+              routeIndex: index,
+              suppressMarkers: true,
+              polylineOptions: {
+                strokeColor: ROUTE_COLORS[index % ROUTE_COLORS.length],
+                strokeWeight: 4,
+                strokeOpacity: 0.5,
+                zIndex: 50 - index,
+              },
+            });
+
+            renderer.addListener('click', () => {
+                onRouteSelect?.(index); // Use index as ID (0, 1, 2...)
+            });
+            
+            route.legs.forEach(leg => {
+                leg.steps.forEach(step => {
+                    step.path.forEach(point => bounds.extend(point));
+                });
+            });
+
+            return renderer;
+          });
           
-          // Add traffic layer
-          const trafficLayer = new google.maps.TrafficLayer();
-          trafficLayer.setMap(map);
+          map.fitBounds(bounds, 60);
+
+          if (onRouteSelect && (selectedRouteId === undefined || selectedRouteId === null)) {
+             onRouteSelect(0);
+          }
         } else {
-          console.error('Directions request failed due to ' + status);
+            setError(`Failed to find routes. Status: ${result.status}`);
         }
+      } catch (err) {
+        console.error('Error calculating routes:', err);
+        setError('An error occurred while calculating routes.');
+      }
+    };
+
+    calculateAndRenderRoutes();
+  }, [map, directionsService, source, destination, waypoints, onRouteSelect]);
+
+  // Effect to update route styles when a route is selected
+  useEffect(() => {
+    directionsRenderers.current.forEach((renderer, index) => {
+      const isSelected = index === selectedRouteId;
+      renderer.setOptions({
+        polylineOptions: {
+          strokeWeight: isSelected ? 7 : 4,
+          strokeOpacity: isSelected ? 0.9 : 0.5,
+          zIndex: isSelected ? 100 : 50 - index,
+        },
       });
-    }
-  }, [routeData, directionsService, directionsRenderer, map]);
+    });
+  }, [selectedRouteId]);
 
-  const getTrafficColor = (level: string) => {
-    switch (level) {
-      case 'low': return 'text-green-500';
-      case 'moderate': return 'text-yellow-500';
-      case 'heavy': return 'text-red-500';
-      default: return 'text-gray-500';
-    }
-  };
-
-  if (error) {
-    return (
-      <div className="h-96 bg-gradient-to-br from-red-50 to-red-100 relative overflow-hidden flex items-center justify-center">
-        <div className="text-center">
-          <AlertTriangle className="h-16 w-16 text-red-400 mx-auto mb-4" />
-          <p className="text-red-600 text-lg font-medium">Map Loading Error</p>
-          <p className="text-red-500 text-sm mt-2">{error}</p>
-          <p className="text-red-400 text-xs mt-2">Please add your Google Maps API key</p>
-        </div>
-      </div>
-    );
-  }
-
+  // Render the container div unconditionally, with overlays for loading/error states.
   return (
-    <div className="h-96 relative overflow-hidden">
-      {isLoading && (
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center z-10">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600 text-lg font-medium">Loading Map...</p>
-          </div>
-        </div>
-      )}
-      
+    <div className="relative w-full h-full" style={{ minHeight: '500px' }}>
       <div ref={mapRef} className="w-full h-full" />
-      
-      {/* Traffic level indicator overlay */}
-      {routeData && !isLoading && (
-        <div className="absolute top-4 right-4 z-10">
-          <div className="bg-white/90 backdrop-blur-sm rounded-lg p-3 border border-gray-200/50 shadow-lg">
-            <div className="flex items-center space-x-2">
-              <Zap className={`h-4 w-4 ${getTrafficColor(routeData.trafficLevel)}`} />
-              <span className="text-sm font-medium capitalize">{routeData.trafficLevel} Traffic</span>
-            </div>
+
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-blue-600 text-lg font-medium">Loading Map...</p>
           </div>
         </div>
       )}
 
-      {/* Route info overlay */}
-      {routeData && !isLoading && (
-        <div className="absolute bottom-4 left-4 right-4 z-10">
-          <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-gray-200/50 shadow-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <Navigation className="h-5 w-5 text-blue-600" />
-                <span className="font-medium text-gray-900">Current Route</span>
-              </div>
-              <div className="flex items-center space-x-4 text-sm text-gray-600">
-                <span className="flex items-center">
-                  <MapPin className="h-4 w-4 mr-1" />
-                  {routeData.distance}
-                </span>
-                <span className="flex items-center">
-                  <Navigation className="h-4 w-4 mr-1" />
-                  {routeData.duration}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* No route placeholder */}
-      {!routeData && !isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-          <div className="text-center text-white">
-            <MapPin className="h-16 w-16 mx-auto mb-4 opacity-70" />
-            <p className="text-lg font-medium">Enter locations to view route</p>
-            <p className="text-sm mt-2 opacity-80">Real-time traffic and weather updates</p>
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-red-50 z-10">
+          <div className="bg-white p-4 rounded-lg shadow-lg text-red-600">
+            <p className="text-lg font-medium">Error: {error}</p>
           </div>
         </div>
       )}
