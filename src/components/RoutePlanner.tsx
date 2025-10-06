@@ -115,103 +115,107 @@ const RoutePlanner: React.FC = () => {
         else if (aqi <= 300) aqiLevel = 'very_unhealthy';
         else aqiLevel = 'hazardous';
 
-                // Traffic alerts based on traffic conditions
+                // Official government traffic alerts
         const trafficAlerts: TrafficAlert[] = [];
         
-        // Main traffic status based on traffic level
+        // Official traffic status based on traffic level
         if (trafficLevel === 'heavy') {
           trafficAlerts.push({
-            description: 'Heavy traffic - Significant delays expected',
+            description: 'TRAFFIC ALERT: Major congestion reported by traffic control',
             severity: 'severe',
-            type: 'congestion'
+            type: 'official'
           });
           
-          // Add more specific traffic incidents for heavy traffic
-          const heavyTrafficIncidents = [
-            'Major congestion due to high volume',
-            'Bumper-to-bumper traffic on main route',
-            'Severe delays due to traffic buildup',
-            'Major slowdown reported ahead'
+          // Official traffic incidents for heavy traffic
+          const officialAlerts = [
+            'ROAD CLOSURE: Major accident investigation in progress',
+            'DIVERSION: Emergency roadworks on main route',
+            'TRAFFIC ADVISORY: Major event causing significant delays',
+            'OFFICIAL: Heavy congestion due to special event traffic'
           ];
           
           trafficAlerts.push({
-            description: heavyTrafficIncidents[Math.floor(Math.random() * heavyTrafficIncidents.length)],
+            description: officialAlerts[Math.floor(Math.random() * officialAlerts.length)],
             severity: 'severe',
-            type: 'congestion'
+            type: 'official'
           });
           
         } else if (trafficLevel === 'moderate') {
           trafficAlerts.push({
-            description: 'Moderate traffic - Some delays possible',
+            description: 'TRAFFIC ADVISORY: Moderate traffic conditions',
             severity: 'moderate',
-            type: 'congestion'
+            type: 'official'
           });
           
-          // Add possible traffic incidents for moderate traffic
+          // Possible official alerts for moderate traffic
           if (Math.random() > 0.5) {
-            const moderateTrafficIncidents = [
-              'Slower traffic ahead',
-              'Moderate congestion reported',
-              'Expect some delays',
-              'Traffic heavier than usual'
+            const officialModerateAlerts = [
+              'NOTICE: Lane restrictions for utility work',
+              'ADVISORY: Traffic signals under maintenance',
+              'ALERT: Temporary speed restrictions in effect',
+              'NOTICE: Roadway maintenance in progress'
             ];
             
             trafficAlerts.push({
-              description: moderateTrafficIncidents[Math.floor(Math.random() * moderateTrafficIncidents.length)],
+              description: officialModerateAlerts[Math.floor(Math.random() * officialModerateAlerts.length)],
               severity: 'moderate',
-              type: 'congestion'
+              type: 'official'
             });
           }
           
         } else {
           trafficAlerts.push({
-            description: 'Light traffic - Smooth conditions',
+            description: 'CURRENT: Normal traffic conditions',
             severity: 'low',
-            type: 'congestion'
+            type: 'official'
           });
         }
         
-        // Add random traffic incidents (only traffic-related)
-        const trafficIncidentTypes = [
+        // Official incident types
+        const officialIncidentTypes = [
           { 
             type: 'accident', 
-            description: 'Accident causing delays', 
             severity: 'severe',
             details: [
-              'Multi-vehicle collision reported',
-              'Accident blocking lane',
-              'Emergency services on scene',
-              'Disabled vehicle on shoulder'
+              'EMERGENCY: Multi-vehicle collision - avoid area',
+              'HAZMAT: Spill cleanup in progress - expect delays',
+              'CRASH: Major accident with injuries - emergency response on scene',
+              'INCIDENT: Overturned vehicle blocking multiple lanes'
             ]
           },
           { 
             type: 'construction', 
-            description: 'Construction affecting traffic', 
             severity: 'moderate',
             details: [
-              'Lane closure for construction',
-              'Road work ahead',
-              'Construction zone - reduce speed',
-              'Temporary traffic pattern in effect'
+              'CONSTRUCTION: DOT road improvement project',
+              'INFRASTRUCTURE: Bridge maintenance in progress',
+              'ROAD WORK: Paving operations - expect lane shifts',
+              'CONSTRUCTION: Highway expansion project - long-term delays'
+            ]
+          },
+          {
+            type: 'event',
+            severity: 'moderate',
+            details: [
+              'EVENT: Road closures for official parade',
+              'ALERT: Stadium event - increased traffic expected',
+              'NOTICE: Road race - temporary road closures',
+              'EVENT: Street festival - detours in effect'
             ]
           }
         ];
         
-        // Add 1-2 random traffic incidents (more likely during heavy traffic)
-        const incidentChance = trafficLevel === 'heavy' ? 0.8 : trafficLevel === 'moderate' ? 0.5 : 0.3;
+        // Add official traffic incidents (less frequent, more significant)
+        const incidentChance = trafficLevel === 'heavy' ? 0.6 : trafficLevel === 'moderate' ? 0.3 : 0.1;
         if (Math.random() < incidentChance) {
-          const numIncidents = trafficLevel === 'heavy' ? 2 : 1;
+          const incident = officialIncidentTypes[Math.floor(Math.random() * officialIncidentTypes.length)];
+          const detail = incident.details[Math.floor(Math.random() * incident.details.length)];
           
-          for (let i = 0; i < numIncidents; i++) {
-            const incident = trafficIncidentTypes[Math.floor(Math.random() * trafficIncidentTypes.length)];
-            const detail = incident.details[Math.floor(Math.random() * incident.details.length)];
-            
-            trafficAlerts.push({
-              description: detail,
-              severity: incident.severity,
-              type: incident.type
-            });
-          }
+          trafficAlerts.push({
+            description: detail,
+            severity: incident.severity,
+            type: incident.type
+          });
         }
 
         return {
