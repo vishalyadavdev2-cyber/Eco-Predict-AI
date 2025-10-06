@@ -11,6 +11,17 @@ export interface RouteStep {
   path: LatLngLiteral[];
 }
 
+export interface TrafficAlert {
+  description: string;
+  severity: 'low' | 'moderate' | 'severe';
+}
+
+export interface AirQuality {
+  aqi: number;
+  level: 'good' | 'moderate' | 'unhealthy' | 'unhealthy-sensitive' | 'very_unhealthy' | 'hazardous';
+  mainPollutant: string;
+}
+
 export interface RouteAlternative {
   id: number;
   summary: string;
@@ -22,15 +33,8 @@ export interface RouteAlternative {
   path: LatLngLiteral[];
   overviewPath?: google.maps.LatLngLiteral[];
   bounds?: google.maps.LatLngBoundsLiteral;
-  airQuality?: {
-    aqi: number;
-    level: 'good' | 'moderate' | 'unhealthy' | 'very_unhealthy' | 'hazardous';
-    mainPollutant?: string;
-  };
-  trafficAlerts?: Array<{
-    description: string;
-    severity: 'low' | 'moderate';
-  }>;
+  airQuality: AirQuality;
+  trafficAlerts: TrafficAlert[];
 }
 
 export interface RouteData {

@@ -105,6 +105,115 @@ const RoutePlanner: React.FC = () => {
           path: step.path?.map(p => ({ lat: p.lat(), lng: p.lng() })) || []
         })) || [];
 
+        // Generate a random AQI value and determine the level
+        const aqi = Math.floor(Math.random() * 300) + 1;
+        let aqiLevel: 'good' | 'moderate' | 'unhealthy' | 'unhealthy-sensitive' | 'very_unhealthy' | 'hazardous' = 'good';
+        if (aqi <= 50) aqiLevel = 'good';
+        else if (aqi <= 100) aqiLevel = 'moderate';
+        else if (aqi <= 150) aqiLevel = 'unhealthy-sensitive';
+        else if (aqi <= 200) aqiLevel = 'unhealthy';
+        else if (aqi <= 300) aqiLevel = 'very_unhealthy';
+        else aqiLevel = 'hazardous';
+
+                // Traffic alerts based on traffic conditions
+        const trafficAlerts: TrafficAlert[] = [];
+        
+        // Main traffic status based on traffic level
+        if (trafficLevel === 'heavy') {
+          trafficAlerts.push({
+            description: 'Heavy traffic - Significant delays expected',
+            severity: 'severe',
+            type: 'congestion'
+          });
+          
+          // Add more specific traffic incidents for heavy traffic
+          const heavyTrafficIncidents = [
+            'Major congestion due to high volume',
+            'Bumper-to-bumper traffic on main route',
+            'Severe delays due to traffic buildup',
+            'Major slowdown reported ahead'
+          ];
+          
+          trafficAlerts.push({
+            description: heavyTrafficIncidents[Math.floor(Math.random() * heavyTrafficIncidents.length)],
+            severity: 'severe',
+            type: 'congestion'
+          });
+          
+        } else if (trafficLevel === 'moderate') {
+          trafficAlerts.push({
+            description: 'Moderate traffic - Some delays possible',
+            severity: 'moderate',
+            type: 'congestion'
+          });
+          
+          // Add possible traffic incidents for moderate traffic
+          if (Math.random() > 0.5) {
+            const moderateTrafficIncidents = [
+              'Slower traffic ahead',
+              'Moderate congestion reported',
+              'Expect some delays',
+              'Traffic heavier than usual'
+            ];
+            
+            trafficAlerts.push({
+              description: moderateTrafficIncidents[Math.floor(Math.random() * moderateTrafficIncidents.length)],
+              severity: 'moderate',
+              type: 'congestion'
+            });
+          }
+          
+        } else {
+          trafficAlerts.push({
+            description: 'Light traffic - Smooth conditions',
+            severity: 'low',
+            type: 'congestion'
+          });
+        }
+        
+        // Add random traffic incidents (only traffic-related)
+        const trafficIncidentTypes = [
+          { 
+            type: 'accident', 
+            description: 'Accident causing delays', 
+            severity: 'severe',
+            details: [
+              'Multi-vehicle collision reported',
+              'Accident blocking lane',
+              'Emergency services on scene',
+              'Disabled vehicle on shoulder'
+            ]
+          },
+          { 
+            type: 'construction', 
+            description: 'Construction affecting traffic', 
+            severity: 'moderate',
+            details: [
+              'Lane closure for construction',
+              'Road work ahead',
+              'Construction zone - reduce speed',
+              'Temporary traffic pattern in effect'
+            ]
+          }
+        ];
+        
+        // Add 1-2 random traffic incidents (more likely during heavy traffic)
+        const incidentChance = trafficLevel === 'heavy' ? 0.8 : trafficLevel === 'moderate' ? 0.5 : 0.3;
+        if (Math.random() < incidentChance) {
+          const numIncidents = trafficLevel === 'heavy' ? 2 : 1;
+          
+          for (let i = 0; i < numIncidents; i++) {
+            const incident = trafficIncidentTypes[Math.floor(Math.random() * trafficIncidentTypes.length)];
+            const detail = incident.details[Math.floor(Math.random() * incident.details.length)];
+            
+            trafficAlerts.push({
+              description: detail,
+              severity: incident.severity,
+              type: incident.type
+            });
+          }
+        }
+
         return {
           id: index,
           summary: leg.distance?.text || `Route ${index + 1}`,
@@ -126,14 +235,11 @@ const RoutePlanner: React.FC = () => {
             step.path?.map(p => ({ lat: p.lat(), lng: p.lng() })) || []
           ) || [],
           airQuality: {
-            aqi: Math.floor(Math.random() * 150) + 1, // Mock AQI value
-            level: Math.random() > 0.5 ? 'moderate' : 'good',
+            aqi,
+            level: aqiLevel,
             mainPollutant: Math.random() > 0.5 ? 'PM2.5' : 'O3'
           },
-          trafficAlerts: Math.random() > 0.7 ? [{
-            description: 'Heavy traffic on route',
-            severity: 'moderate'
-          }] : []
+          trafficAlerts
         };
       });
 
@@ -187,12 +293,119 @@ const RoutePlanner: React.FC = () => {
     );
   }
 
+  // Get traffic level color based on traffic level
+  const getTrafficLevelColor = (level: 'low' | 'moderate' | 'heavy') => {
+    switch (level) {
+      case 'low': return 'text-green-500';
+      case 'moderate': return 'text-yellow-500';
+      case 'heavy': return 'text-red-500';
+      default: return 'text-gray-500';
+    }
+  };
+
+  // Get traffic level text
+  const getTrafficLevelText = (level: 'low' | 'moderate' | 'heavy') => {
+    switch (level) {
+      case 'low': return 'Light Traffic';
+      case 'moderate': return 'Moderate Traffic';
+      case 'heavy': return 'Heavy Traffic';
+      default: return 'Unknown Traffic';
+    }
+  };
+
+  // Get AQI level color
+  const getAqiColor = (aqi: number) => {
+    if (aqi <= 50) return 'text-green-500';
+    if (aqi <= 100) return 'text-yellow-500';
+    if (aqi <= 150) return 'text-orange-500';
+    return 'text-red-500';
+  };
+
+  // Get AQI level text
+  const getAqiLevel = (aqi: number) => {
+    if (aqi <= 50) return 'Good';
+    if (aqi <= 100) return 'Moderate';
+    if (aqi <= 150) return 'Unhealthy for Sensitive Groups';
+    return 'Unhealthy';
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Eco Predict AI</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6 md:mb-8">Eco Predict AI</h1>
         
-        <div className="bg-white p-6 rounded-lg shadow-md mb-8">
+        {/* Traffic Updates Card */}
+        {selectedRoute && (
+          <div className="bg-white rounded-lg shadow-md mb-6 overflow-hidden">
+            <div className="p-4 bg-blue-600 text-white">
+              <h2 className="text-lg font-semibold">Traffic Updates</h2>
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Traffic Status */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="text-sm font-medium text-gray-500 mb-2">TRAFFIC STATUS</h3>
+                  <div className="flex items-center">
+                    <div className={`text-2xl font-bold ${getTrafficLevelColor(selectedRoute.trafficLevel)}`}>
+                      {getTrafficLevelText(selectedRoute.trafficLevel)}
+                    </div>
+                  </div>
+                  <div className="mt-2 text-sm text-gray-500">
+                    {selectedRoute.trafficLevel === 'heavy' ? 'Expect delays' : 'Smooth sailing'}
+                  </div>
+                </div>
+
+                {/* Travel Time */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="text-sm font-medium text-gray-500 mb-2">TRAVEL TIME</h3>
+                  <div className="text-2xl font-bold text-gray-900">
+                    {selectedRoute.durationInTraffic?.text || selectedRoute.duration.text}
+                  </div>
+                  {selectedRoute.durationInTraffic && selectedRoute.durationInTraffic.value > selectedRoute.duration.value && (
+                    <div className="text-sm text-red-500">
+                      +{Math.round((selectedRoute.durationInTraffic.value - selectedRoute.duration.value) / 60)} min due to traffic
+                    </div>
+                  )}
+                </div>
+
+                {/* Air Quality */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="text-sm font-medium text-gray-500 mb-2">AIR QUALITY</h3>
+                  <div className="flex items-center">
+                    <div className={`text-2xl font-bold ${getAqiColor(selectedRoute.airQuality.aqi)}`}>
+                      {selectedRoute.airQuality.aqi} AQI
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {getAqiLevel(selectedRoute.airQuality.aqi)}
+                    {selectedRoute.airQuality.mainPollutant && ` • ${selectedRoute.airQuality.mainPollutant}`}
+                  </div>
+                </div>
+              </div>
+
+              {/* Traffic Alerts */}
+              {selectedRoute.trafficAlerts && selectedRoute.trafficAlerts.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">TRAFFIC ALERTS</h3>
+                  <div className="space-y-2">
+                    {selectedRoute.trafficAlerts.map((alert, index) => (
+                      <div key={index} className="flex items-start">
+                        <div className="flex-shrink-0 mt-0.5">
+                          <div className={`h-3 w-3 rounded-full ${alert.severity === 'severe' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
+                        </div>
+                        <div className="ml-3">
+                          <p className="text-sm text-gray-700">{alert.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white p-4 md:p-6 rounded-lg shadow-md mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <LocationSearch
               label="From"
