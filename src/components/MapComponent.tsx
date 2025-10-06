@@ -30,7 +30,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const directionsRenderers = useRef<google.maps.DirectionsRenderer[]>([]);
-  const markers = useRef<google.maps.Marker[]>([]); // Ref to hold markers
+  const markers = useRef<google.maps.Marker[]>([]);
 
   // Effect for initializing the map instance (runs only once)
   useEffect(() => {
@@ -41,7 +41,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
         await loadGoogleMaps();
         
         const mapInstance = new google.maps.Map(mapRef.current!, {
-          center: { lat: 20.5937, lng: 78.9629 }, // Default center of India
+          center: { lat: 20.5937, lng: 78.9629 },
           zoom: 5,
           mapTypeControl: false,
           streetViewControl: false,
@@ -53,7 +53,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
         setDirectionsService(new google.maps.DirectionsService());
       } catch (err) {
         console.error('Error loading Google Maps:', err);
-        setError('Failed to load Google Maps. Please check your API key and internet connection.');
+        setError('Failed to load Google Maps.');
       } finally {
         setIsLoading(false);
       }
@@ -61,10 +61,9 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
     initMap();
 
-    // Cleanup on component unmount
     return () => {
       directionsRenderers.current.forEach(renderer => renderer.setMap(null));
-      markers.current.forEach(marker => marker.setMap(null)); // Clean up markers
+      markers.current.forEach(marker => marker.setMap(null));
       directionsRenderers.current = [];
       markers.current = [];
     };
@@ -99,7 +98,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
               map,
               directions: result,
               routeIndex: index,
-              suppressMarkers: true, // Suppress default markers to use our own
+              suppressMarkers: true,
               polylineOptions: {
                 strokeColor: ROUTE_COLORS[index % ROUTE_COLORS.length],
                 strokeWeight: 4,
@@ -118,7 +117,8 @@ const MapComponent: React.FC<MapComponentProps> = ({
             return renderer;
           });
           
-          map.fitBounds(bounds, 60);
+          // --- THIS LINE IS CHANGED ---
+          map.fitBounds(bounds, 100); // Increased padding from 60 to 100 to zoom out
 
           if (onRouteSelect && (selectedRouteId === undefined || selectedRouteId === null)) {
             onRouteSelect(0);
@@ -137,7 +137,6 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
   // Effect to add/update markers for source and destination
   useEffect(() => {
-    // Clear previous markers
     markers.current.forEach(marker => marker.setMap(null));
     markers.current = [];
 
